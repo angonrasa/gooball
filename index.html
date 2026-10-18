@@ -524,12 +524,14 @@ const P={stiff:.15,damp:.015,bounce:.55,grav:.85,wind:.0012,squash:.026,snap:1.5
 let crates=[],rings=[],floats=[],todo=[],pend=[],hist=[],hit=0,grab=null,tap=null,sbKind='',combo=0,lastSuckT=0,rs=0,roundT0=0,stat={};
 const SNAP_SB=2.1,DEBUG=/[?&]buka\b/.test(location.search);
 const KN={
+ ringan:{n:'Ringan',h:170,tip:'ringan, melayang ke atas',need:'Selesaikan level 7 Pelampung',ok:s=>s.lvl>=7,prog:s=>'level '+Math.min(s.lvl,7)+'/7'},
+ berat:{n:'Berat',h:20,tip:'berat, cocok jadi pemberat',need:'Selesaikan level 9 Pulang',ok:s=>s.lvl>=9,prog:s=>'level '+Math.min(s.lvl,9)+'/9'},
  karet:{n:'Karet',h:50,tip:'memantul sangat tinggi',need:'Selesaikan Endless ronde 3',ok:s=>s.round>=3,prog:s=>'ronde '+Math.min(s.round,3)+'/3'},
  magnet:{n:'Magnet',h:330,tip:'menarik bola bebas di dekatnya',need:'Sedot 40 bola di Endless',ok:s=>s.sucked>=40,prog:s=>Math.min(s.sucked,40)+'/40 bola'},
  bom:{n:'Bom',h:355,tip:'meledak kalau dibenturkan keras atau diketuk',need:'Selesaikan Endless ronde 6',ok:s=>s.round>=6,prog:s=>'ronde '+Math.min(s.round,6)+'/6'}
 };
 try{stat=JSON.parse(localStorage.getItem('goo_stat')||'{}')||{}}catch(e){stat={}}
-stat.round=stat.round||0;stat.sucked=stat.sucked||0;stat.seen=stat.seen||[];
+stat.round=stat.round||0;stat.lvl=stat.lvl||0;stat.sucked=stat.sucked||0;stat.seen=stat.seen||[];
 const saveStat=()=>{try{localStorage.setItem('goo_stat',JSON.stringify(stat))}catch(e){}};
 const unlocked=k=>DEBUG||KN[k].ok(stat);
 function checkUnlocks(){const n=[];for(const k in KN)if(unlocked(k)&&!stat.seen.includes(k)){stat.seen.push(k);n.push(k)}if(n.length)saveStat();return n}
@@ -630,17 +632,25 @@ function finish(ok){const L=LV[li];if(L.endless){endFinish(ok);return}state=ok?'
  $('od').textContent=ok?L.sci+(L.vac?' Bola di wadah: '+got+'. Menara kokohmu jadi jalan bagi bola-bola itu.':L.pipe?' Bola yang pulang: '+got+'. Bola lain rela menjadi jembatan.':' (Bola dipakai: '+used+')'):(L.vac?'Tidak ada bola tersisa untuk disedot. Bangun lebih hemat.':L.pipe?'Tidak ada bola yang selamat. Pakai bola lebih hemat.':'Perkuat sambungannya, lalu coba lagi.');
  const nb=$('ob');nb.textContent=ok?(L.free?'Lagi':li<NS-1?'Level berikutnya':'Main dari awal'):'Coba lagi';
  nb.onclick=()=>{if(ok&&!L.free)lbSave(($('tm').value||'Tanpa nama').trim().slice(0,16),li,st);go(ok&&!L.free?(li+1)%NS:li)};$('tm').style.display=ok&&!L.free?'inline-block':'none';if(ok)try{$('tm').value=localStorage.getItem('goo_team')||''}catch(e){}
+ let nu=[];if(ok&&!L.free){stat.lvl=Math.max(stat.lvl,li+1);saveStat();nu=checkUnlocks()}
  fixSetup(ok,L);
- showRes();ok?sWin():sLose();fxEnd(ok,st,!ok&&!!snap0&&!!L.test)}
+ if(nu.length){$('od').textContent+=' 🎁 Bola baru terbuka: '+nu.map(k=>KN[k].n).join(', ')+'! Coba di level Bebas (tombol Jenis).'}
+ showRes();ok?sWin():sLose();fxEnd(ok,st,!ok&&!!snap0&&!!L.test);
+ if(nu.length)[784,988,1175,1568].forEach((f,i)=>tone(f,f,.22,'triangle',.15,.6+i*.1))}
 /* ---------- gambar ---------- */
 function drawBall(b,t){const n=b.goo,{x,y}=b.position,st=b.isStatic&&b!==drag;
  const k=Math.min(b.speed,14)*P.squash,ang=Math.atan2(b.velocity.y,b.velocity.x),jj=n.jel>0?Math.sin(n.jel*.6)*n.jel/40*.28:0;
- const hc=charColor(n);ctx.save();ctx.strokeStyle=hc.ink;if(n.trait&&!n.free&&y<G-130)ctx.translate(Math.sin(t/40+n.t*9)*1.3,0);ctx.translate(x,y);ctx.rotate(ang);ctx.scale(1+k,1-k*.8);ctx.rotate(-ang);ctx.scale(1+jj,1-jj);ctx.translate(-x,-y);
- ctx.beginPath();ctx.arc(x,y,R,0,7);ctx.fillStyle=hc.fill;if(n.kind!=='ringan')ctx.fill();if(st||n.kind==='berat'){ctx.fill();ctx.fill();ctx.fill()}
+ const hc=charColor(n),rr=(!n.free&&b!==drag)?12:R;ctx.save();ctx.strokeStyle=hc.ink;if(n.trait&&!n.free&&y<G-130)ctx.translate(Math.sin(t/40+n.t*9)*1.3,0);ctx.translate(x,y);ctx.rotate(ang);ctx.scale(1+k,1-k*.8);ctx.rotate(-ang);ctx.scale(1+jj,1-jj);ctx.translate(-x,-y);
+ ctx.beginPath();ctx.arc(x,y,rr,0,7);ctx.fillStyle=hc.fill;if(n.kind!=='ringan')ctx.fill();if(st||n.kind==='berat'){ctx.fill();ctx.fill();ctx.fill()}
  ctx.setLineDash(n.kind==='ringan'?[5,4]:[]);
  ctx.beginPath();const S=40,sw=Math.PI*2+.35;
- for(let i=0;i<=S;i++){const a=n.t+sw*i/S,r=R-.8+1.6*i/S,px=x+Math.cos(a)*r,py=y+Math.sin(a)*r;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.stroke();
- ctx.setLineDash([]);const sc=b===drag||n.hp<.6||b.velocity.y>7||(n.trait&&!n.free&&y<G-130),dx=ptr.x-x,dy=ptr.y-y,dd=Math.hypot(dx,dy)||1,ox=dx/dd*1.8,oy=dy/dd*1.8,eye=Math.sin(t/900+n.t)>.97?.5:(sc?3.8:3);ctx.fillStyle=hc.ink;
+ for(let i=0;i<=S;i++){const a=n.t+sw*i/S,r=rr-.8+1.6*i/S,px=x+Math.cos(a)*r,py=y+Math.sin(a)*r;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.stroke();
+ ctx.setLineDash([]);
+ if(!n.free&&b!==drag){/* simpul: goo yang sudah terikat tampil sebagai titik sambung tanpa wajah */
+  ctx.fillStyle=hc.ink;ctx.beginPath();ctx.arc(x,y,5.5,0,7);ctx.fill();
+  ctx.lineWidth=1.5;ctx.strokeStyle=css('--paper');ctx.beginPath();ctx.arc(x,y,8,0,7);ctx.stroke();
+  kindMark(b,t);ctx.restore();return}
+ const sc=b===drag||n.hp<.6||b.velocity.y>7||(n.trait&&!n.free&&y<G-130),dx=ptr.x-x,dy=ptr.y-y,dd=Math.hypot(dx,dy)||1,ox=dx/dd*1.8,oy=dy/dd*1.8,eye=Math.sin(t/900+n.t)>.97?.5:(sc?3.8:3);ctx.fillStyle=hc.ink;
  for(const ex of[-5,5]){ctx.beginPath();ctx.ellipse(x+ex+ox,y-2+oy,2.2,eye,0,0,7);ctx.fill()}
  ctx.beginPath();if(sadT>0)ctx.arc(x,y+9,4,Math.PI+.25,-.25);else if(sc)ctx.ellipse(x,y+5,2.6,3.6,0,0,7);else ctx.arc(x,y+4,4,.2,Math.PI-.2);ctx.stroke();kindMark(b,t);ctx.restore()}
 function draw(t){const L=LV[li];ctx.setLineDash([]);ctx.fillStyle=css('--paper');ctx.fillRect(0,0,W,H);
@@ -1007,7 +1017,7 @@ function kdShow(){const el=$('kd'),it=[['','Biasa','bola goo standar',true,'']].
  el.onclick=e=>{const b=e.target.closest('button[data-k]');if(!b||b.disabled)return;sbKind=b.dataset.k;updKind();kdShow()}}
 
 /* ---------- bola goo berjalan di struktur & lantai ---------- */
-let fr=0;const WALK_SP=1.15,WALK_OFF=2*R-2,MASK_ALL=4294967295;
+let fr=0;const WALK_SP=1.15,WALK_OFF=2*R-2,WALK_ON=R-2,MASK_ALL=4294967295;
 const standOn=(b,o)=>b.goo&&b.goo.free&&!b.isStatic&&o!==walls[1]&&o!==walls[2]&&o.position.y-b.position.y>8;
 for(const ev of['collisionStart','collisionActive'])Events.on(engine,ev,e=>{for(const p of e.pairs){if(standOn(p.bodyA,p.bodyB))p.bodyA.goo.gt=fr;if(standOn(p.bodyB,p.bodyA))p.bodyB.goo.gt=fr}});
 function stopWalk(b){const g=b.goo;if(!g||!g.wk)return;g.wk=null;b.collisionFilter.mask=MASK_ALL;Body.setVelocity(b,{x:(Math.random()-.5)*2,y:-1})}
@@ -1016,7 +1026,7 @@ const walkK=g=>g.kind==='berat'?.7:g.kind==='ringan'?1.25:1;
 function walkStep(){if(state!=='build')return;
  for(const b of balls){const g=b.goo;if(!g.free||b===drag||b.isStatic)continue;
   if(g.wk)walkEdge(b,g);else{wander(b,g);tryAttach(b,g)}}}
-function tryAttach(b,g){if(b.speed>2.4||Math.random()>.05)return;const p=b.position;let best=null,bd=WALK_OFF+4;
+function tryAttach(b,g){if(g.kind==='ringan')return;if(b.speed>2.4||Math.random()>.05)return;const p=b.position;let best=null,bd=WALK_OFF+4;
  for(const l of links){const A=l.bodyA.position,B=l.bodyB.position;if(dist(A,B)<30)continue;const q=segPt(p,A,B),d=dist(p,q);if(d<bd&&p.y<=q.y+6){bd=d;best={l:l,q:q}}}
  if(!best)return;
  let nx=p.x-best.q.x,ny=p.y-best.q.y;const nl=Math.hypot(nx,ny);if(nl<1){nx=0;ny=-1}else{nx/=nl;ny/=nl}
@@ -1033,7 +1043,7 @@ function walkEdge(b,g){const w=g.wk;let l=w.e;
  let nx=dy/L,ny=-dx/L;if(ny>0){nx=-nx;ny=-ny}
  if(Math.abs(ny)<.45&&nx*w.nx+ny*w.ny<0){nx=-nx;ny=-ny}
  w.nx=nx;w.ny=ny;
- const tx=A.x+dx*w.u+nx*WALK_OFF,ty=A.y+dy*w.u+ny*WALK_OFF,p=b.position;
+ const tx=A.x+dx*w.u+nx*WALK_ON,ty=A.y+dy*w.u+ny*WALK_ON,p=b.position;
  Body.setPosition(b,{x:p.x+(tx-p.x)*.35,y:p.y+(ty-p.y)*.35});Body.setVelocity(b,{x:0,y:0})}
 function wander(b,g){if(fr-g.gt>3)return;
  if(--g.wt<=0){const r=Math.random();g.wd=r<.3?0:r<.65?-1:1;g.wt=40+(Math.random()*140|0)}
